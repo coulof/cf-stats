@@ -80,4 +80,6 @@ Phase 1 of [ADR-001](docs/adr/0001-cf-stats-architecture.md):
 - [x] Collector + classification views + Taskfile
 - [x] Hourly systemd timer
 - [x] FastAPI + Highcharts dashboard
+- [x] Test suite (61 tests)
+- [ ] Containerize (Docker Compose — collector + web + DuckDB volume)
 - [ ] Phase 2: public dashboard via Cloudflare Pages

@@ -218,3 +218,6 @@ Analytics, Workers logs) before deciding.
 6. [ ] Bind the dashboard to Tailscale/LAN only.
 7. [ ] After ~2 weeks of accumulation, evaluate query latency and decide on
        Phase 2 timing (static JSON export → Cloudflare Pages).
+8. [ ] Containerize the whole thing (collector + web service) — Docker Compose
+       with the DuckDB file on a named volume; replaces the systemd approach
+       for easier portability across servers.
