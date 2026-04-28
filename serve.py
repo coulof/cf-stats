@@ -54,9 +54,14 @@ def _query(sql: str, params: list | None = None) -> list[dict]:
 
 @app.get("/api/health")
 def health():
-    return _query(
-        "SELECT COUNT(*) AS rows, MIN(ts) AS since, MAX(ts) AS until FROM requests_hourly"
-    )[0]
+    return _query("""
+        SELECT
+            COUNT(*)                            AS rows,
+            MIN(ts)                             AS since,
+            MAX(ts)                             AS until,
+            CAST(epoch(MAX(ts)) AS BIGINT)      AS until_ts
+        FROM requests_hourly
+    """)[0]
 
 
 @app.get("/api/summary")
