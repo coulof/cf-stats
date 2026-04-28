@@ -17,6 +17,7 @@ import duckdb
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 DB = Path(__file__).parent / "stats.duckdb"
 WEB = Path(__file__).parent / "web"
@@ -130,6 +131,9 @@ def favicon():
 @app.get("/", include_in_schema=False)
 def index():
     return FileResponse(WEB / "index.html")
+
+
+app.mount("/vendor", StaticFiles(directory=WEB / "vendor"), name="vendor")
 
 
 if __name__ == "__main__":

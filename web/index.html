@@ -315,8 +315,8 @@ const S = {
 };
 const chartInstances = {};
 
-/* Pre-fetch world topology in parallel with page load */
-const worldTopoPromise = fetch('https://code.highcharts.com/mapdata/custom/world.topo.json')
+/* Pre-fetch world topology in parallel with page load (vendored locally — CDN is unreliable from some networks) */
+const worldTopoPromise = fetch('/vendor/world.topo.json')
   .then(r => r.json()).catch(() => null);
 
 /* ── Utils ── */
