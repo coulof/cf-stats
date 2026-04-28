@@ -98,6 +98,45 @@ tasks:
     cmds:
       - "{{.PYTHON}} serve.py {{.CLI_ARGS}}"
 
+  # ---------- systemd (user service, rootless) ----------
+
+  systemd:install:
+    desc: Symlink unit files into ~/.config/systemd/user/ and reload daemon
+    cmds:
+      - mkdir -p ~/.config/systemd/user
+      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats.service ~/.config/systemd/user/
+      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats.timer   ~/.config/systemd/user/
+      - systemctl --user daemon-reload
+      - echo "Units installed. Run 'task systemd:enable' to start the timer."
+
+  systemd:enable:
+    desc: Enable linger + start hourly timer
+    cmds:
+      - loginctl enable-linger $USER
+      - systemctl --user enable --now cf-stats.timer
+      - systemctl --user status cf-stats.timer --no-pager
+
+  systemd:disable:
+    desc: Stop and disable the timer
+    cmds:
+      - systemctl --user disable --now cf-stats.timer
+
+  systemd:status:
+    desc: Show status of service and timer
+    cmds:
+      - systemctl --user status cf-stats.service cf-stats.timer --no-pager || true
+
+  systemd:logs:
+    desc: Recent collector logs (last 50 lines)
+    cmds:
+      - journalctl --user -u cf-stats.service -n 50 --no-pager
+
+  systemd:run:
+    desc: Trigger a one-shot collection now (bypass the timer)
+    cmds:
+      - systemctl --user start cf-stats.service
+      - journalctl --user -u cf-stats.service -n 20 --no-pager
+
   # ---------- maintenance ----------
 
   backup:

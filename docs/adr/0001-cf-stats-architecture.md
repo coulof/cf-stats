@@ -1,6 +1,6 @@
 # ADR-001: Long-term Cloudflare traffic stats with DuckDB and a local web dashboard
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-28
 **Deciders:** @gonzo
 
@@ -208,10 +208,13 @@ Analytics, Workers logs) before deciding.
 1. [x] Confirm CF GraphQL dataset works on the free plan
        (`httpRequestsAdaptiveGroups` ✅, `clientRequestPath` ✅, sampled).
 2. [x] Build the collector (`collector/collector.py`, `collector/views.sql`).
-3. [ ] Run collector hourly; let data accumulate for a few days.
-4. [ ] Build `serve.py` (FastAPI) and `web/index.html` (Highcharts).
-5. [ ] Set up systemd timer for hourly collection + a daily
-       `duckdb EXPORT DATABASE` backup.
+3. [x] Build `serve.py` (FastAPI) and `web/index.html` (Highcharts).
+       Dashboard: period + granularity selectors, spam toggle, 4 themes ×
+       light/dark, world map (log scale) + bar for countries, clickable
+       post links.
+4. [x] Set up systemd user service + hourly timer (`systemd/`).
+       Install with `task systemd:install && task systemd:enable`.
+5. [ ] Run collector; let data accumulate and verify no gaps.
 6. [ ] Bind the dashboard to Tailscale/LAN only.
 7. [ ] After ~2 weeks of accumulation, evaluate query latency and decide on
-       Phase 2 timing.
+       Phase 2 timing (static JSON export → Cloudflare Pages).

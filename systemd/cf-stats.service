@@ -1,0 +1,15 @@
+[Unit]
+Description=cf-stats Cloudflare analytics collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/cf-stats
+EnvironmentFile=%h/src/cf-stats/.env
+ExecStart=%h/src/cf-stats/.venv/bin/python collector/collector.py --hours 4
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

@@ -4,16 +4,16 @@ Context for future Claude sessions in this repo.
 
 ## What this is
 
-A small local pipeline pulling `lafabrique.ai`'s Cloudflare traffic analytics
-into DuckDB to extend the free-plan 30-day retention indefinitely. Single
-user, single host. Read
+A local pipeline pulling `lafabrique.ai`'s Cloudflare traffic analytics into
+DuckDB to extend the free-plan 30-day retention indefinitely, with a Highcharts
+dashboard at `http://localhost:8080`. Read
 [`docs/adr/0001-cf-stats-architecture.md`](docs/adr/0001-cf-stats-architecture.md)
-first — it has the architecture, schema rationale, and trade-offs against
-alternatives. Don't duplicate that content here.
+first — it has the architecture, schema rationale, and trade-offs. Don't
+duplicate that content here.
 
 ## Environment
 
-- Python venv at `.venv/` (Python 3.13 + `duckdb` package).
+- Python venv at `.venv/` (Python 3.13 + `duckdb`, `fastapi`, `uvicorn`).
 - DuckDB CLI binary lives at `~/.duckdb/cli/latest/duckdb` —
   **not on `PATH`**. The `Taskfile.yml` exposes it as the `DUCKDB` var; reuse
   that variable rather than hard-coding the path.
@@ -37,7 +37,12 @@ alternatives. Don't duplicate that content here.
   safe; the latest in-progress hour is intentionally excluded.
 - **Times are UTC.** `datetimeHour` from CF is UTC; the DuckDB `ts` column is
   naive `TIMESTAMP` storing UTC wall-clock.
+- **Dashboard API is period-aware.** All `/api/*` endpoints accept a `period`
+  query param (`day`/`week`/`quarter`/`semester`/`year`/`all`). `/api/traffic`
+  also takes `granularity` (`hour`/`day`/`month`). The frontend handles the
+  disabled combinations (e.g. `hour` is disabled for `quarter` and longer).
 
 ## What's not built yet
 
-The action-item checklist at the bottom of the ADR is the source of truth.
+Phase 2 — public dashboard via Cloudflare Pages (static JSON export + CF
+Pages deploy). See the ADR action items for details.
