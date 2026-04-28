@@ -1,0 +1,15 @@
+[Unit]
+Description=cf-stats web dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/src/cf-stats
+ExecStart=%h/src/cf-stats/.venv/bin/python serve.py --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

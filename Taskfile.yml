@@ -101,13 +101,14 @@ tasks:
   # ---------- systemd (user service, rootless) ----------
 
   systemd:install:
-    desc: Symlink unit files into ~/.config/systemd/user/ and reload daemon
+    desc: Symlink all unit files into ~/.config/systemd/user/ and reload daemon
     cmds:
       - mkdir -p ~/.config/systemd/user
-      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats.service ~/.config/systemd/user/
-      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats.timer   ~/.config/systemd/user/
+      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats.service     ~/.config/systemd/user/
+      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats.timer       ~/.config/systemd/user/
+      - ln -sf {{.TASKFILE_DIR}}/systemd/cf-stats-web.service ~/.config/systemd/user/
       - systemctl --user daemon-reload
-      - echo "Units installed. Run 'task systemd:enable' to start the timer."
+      - echo "Units installed. Run 'task systemd:enable' then 'task systemd:web:enable'."
 
   systemd:enable:
     desc: Enable linger + start hourly timer
@@ -136,6 +137,32 @@ tasks:
     cmds:
       - systemctl --user start cf-stats.service
       - journalctl --user -u cf-stats.service -n 20 --no-pager
+
+  systemd:web:enable:
+    desc: Enable and start the web dashboard service
+    cmds:
+      - systemctl --user enable --now cf-stats-web.service
+      - systemctl --user status cf-stats-web.service --no-pager
+
+  systemd:web:disable:
+    desc: Stop and disable the web dashboard service
+    cmds:
+      - systemctl --user disable --now cf-stats-web.service
+
+  systemd:web:restart:
+    desc: Restart the web dashboard service
+    cmds:
+      - systemctl --user restart cf-stats-web.service
+
+  systemd:web:logs:
+    desc: Recent web dashboard logs (last 50 lines)
+    cmds:
+      - journalctl --user -u cf-stats-web.service -n 50 --no-pager
+
+  systemd:web:status:
+    desc: Show web dashboard service status
+    cmds:
+      - systemctl --user status cf-stats-web.service --no-pager
 
   # ---------- maintenance ----------
 
