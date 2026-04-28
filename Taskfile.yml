@@ -6,7 +6,8 @@ vars:
   VENV: .venv
   PYTHON: "{{.VENV}}/bin/python"
   PIP: "{{.VENV}}/bin/pip"
-  DUCKDB: /home/gonzo/.duckdb/cli/latest/duckdb
+  DUCKDB:
+    sh: echo "$HOME/.duckdb/cli/latest/duckdb"
   DB: stats.duckdb
 
 tasks:
