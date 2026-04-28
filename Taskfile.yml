@@ -1,0 +1,106 @@
+version: '3'
+
+dotenv: ['.env']
+
+vars:
+  VENV: .venv
+  PYTHON: "{{.VENV}}/bin/python"
+  PIP: "{{.VENV}}/bin/pip"
+  DUCKDB: /home/gonzo/.duckdb/cli/latest/duckdb
+  DB: stats.duckdb
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ---------- setup ----------
+
+  setup:
+    desc: Create venv and install Python dependencies
+    cmds:
+      - python3 -m venv {{.VENV}}
+      - "{{.PIP}} install --upgrade pip --quiet"
+      - "{{.PIP}} install -r requirements.txt --quiet"
+    status:
+      - test -d {{.VENV}}
+      - "{{.PYTHON}} -c 'import duckdb' 2>/dev/null"
+
+  # ---------- collection ----------
+
+  probe:
+    desc: 'Probe Cloudflare API to validate assumptions (forward args after --, e.g. task probe -- --hours 6)'
+    deps: [setup]
+    cmds:
+      - "{{.PYTHON}} collector/probe.py {{.CLI_ARGS}}"
+
+  collect:
+    desc: 'Pull stats into DuckDB (default last 4h; e.g. task collect -- --hours 24)'
+    deps: [setup]
+    cmds:
+      - "{{.PYTHON}} collector/collector.py {{.CLI_ARGS}}"
+
+  views:
+    desc: (Re)create classification + dashboard views
+    cmds:
+      - "{{.DUCKDB}} {{.DB}} < collector/views.sql"
+
+  # ---------- queries ----------
+
+  shell:
+    desc: Open interactive DuckDB shell on the stats DB
+    cmds:
+      - "{{.DUCKDB}} {{.DB}}"
+
+  query:
+    desc: 'Run an ad-hoc SQL query (e.g. task query -- "SELECT 1")'
+    cmds:
+      - '{{.DUCKDB}} {{.DB}} -c "{{.CLI_ARGS}}"'
+
+  summary:
+    desc: Headline blog/site/spam category split
+    cmds:
+      - |
+        {{.DUCKDB}} {{.DB}} -c "
+          SELECT category,
+                 SUM(requests) AS requests,
+                 ROUND(100.0 * SUM(requests) / SUM(SUM(requests)) OVER (), 1) AS pct
+          FROM v_by_category_hourly
+          GROUP BY 1
+          ORDER BY requests DESC;"
+
+  top-blog:
+    desc: Top blog posts (last 30 days)
+    cmds:
+      - "{{.DUCKDB}} {{.DB}} -c 'SELECT * FROM v_top_blog_30d;'"
+
+  top-spam:
+    desc: Top scanner targets (last 30 days) — use to refine views.sql rules
+    cmds:
+      - "{{.DUCKDB}} {{.DB}} -c 'SELECT * FROM v_top_spam_30d;'"
+
+  countries:
+    desc: Country breakdown for legit (non-spam) traffic
+    cmds:
+      - "{{.DUCKDB}} {{.DB}} -c 'SELECT * FROM v_country_30d;'"
+
+  daily:
+    desc: Daily blog/site/spam split
+    cmds:
+      - "{{.DUCKDB}} {{.DB}} -c 'SELECT * FROM v_daily_split;'"
+
+  # ---------- maintenance ----------
+
+  backup:
+    desc: Snapshot DuckDB to backups/<timestamp>/ as parquet + SQL
+    cmds:
+      - mkdir -p backups
+      - |
+        {{.DUCKDB}} {{.DB}} -c "EXPORT DATABASE 'backups/$(date +%Y%m%d-%H%M%S)' (FORMAT 'parquet');"
+
+  clean:
+    desc: Remove the DuckDB file (DESTRUCTIVE)
+    prompt: This deletes {{.DB}} and any uncommitted views. Continue?
+    cmds:
+      - rm -f {{.DB}} {{.DB}}.wal
