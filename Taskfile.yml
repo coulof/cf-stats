@@ -25,7 +25,7 @@ tasks:
       - "{{.PIP}} install -r requirements.txt --quiet"
     status:
       - test -d {{.VENV}}
-      - "{{.PYTHON}} -c 'import duckdb' 2>/dev/null"
+      - "{{.PYTHON}} -c 'import duckdb, fastapi, uvicorn' 2>/dev/null"
 
   # ---------- collection ----------
 
@@ -89,6 +89,14 @@ tasks:
     desc: Daily blog/site/spam split
     cmds:
       - "{{.DUCKDB}} {{.DB}} -c 'SELECT * FROM v_daily_split;'"
+
+  # ---------- dashboard ----------
+
+  serve:
+    desc: 'Start local dashboard at http://localhost:8080 (e.g. task serve -- --port 9090)'
+    deps: [setup]
+    cmds:
+      - "{{.PYTHON}} serve.py {{.CLI_ARGS}}"
 
   # ---------- maintenance ----------
 

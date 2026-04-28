@@ -3,3 +3,5 @@
 *.duckdb.wal
 __pycache__/
 .venv/
+.claude/
+backups/

@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lafabrique.ai · stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/maps/modules/map.js"></script>
+  <style>
+    :root {
+      --bg:          #282a36;
+      --surface:     #44475a;
+      --border:      #6272a4;
+      --fg:          #f8f8f2;
+      --comment:     #6272a4;
+      --c-blog:      #bd93f9;
+      --c-site:      #8be9fd;
+      --c-spam:      #ff5555;
+      --c-countries: #50fa7b;
+      --c-accent:    #bd93f9;
+      --c-prompt:    #50fa7b;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: var(--bg); color: var(--fg);
+      min-height: 100vh; padding: 1.5rem;
+      transition: background .3s, color .3s;
+    }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+      background-size: 28px 28px; opacity: 0.06;
+      pointer-events: none; z-index: 0;
+    }
+
+    #app { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; }
+
+    /* ── header ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.5rem; padding-bottom: .9rem;
+      border-bottom: 1px solid rgba(98,114,164,0.25);
+    }
+    .hd-left   { display: flex; align-items: center; gap: .5rem; }
+    .hd-prompt { color: var(--c-prompt); font-size: 1rem; user-select: none; transition: color .3s; }
+    .hd-title  { font-size: .95rem; font-weight: 600; letter-spacing: .04em; }
+    .hd-title span { color: var(--comment); font-weight: 400; }
+    .hd-right  { font-size: .68rem; color: var(--comment); font-style: italic; }
+
+    /* ── controls ── */
+    .controls {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: .6rem; margin-bottom: 1.25rem;
+    }
+    .ctrl-sep { width: 1px; height: 22px; background: rgba(98,114,164,0.3); margin: 0 .1rem; }
+
+    .pill-group { display: flex; }
+    .pill {
+      font-family: inherit; font-size: .68rem; padding: .28rem .65rem;
+      border: 1px solid var(--border); background: transparent; color: var(--comment);
+      cursor: pointer; border-radius: 0;
+      transition: background .12s, color .12s, border-color .12s;
+      letter-spacing: .03em; white-space: nowrap; line-height: 1.4;
+    }
+    .pill-group .pill:first-child { border-radius: 3px 0 0 3px; }
+    .pill-group .pill:last-child  { border-radius: 0 3px 3px 0; }
+    .pill-group .pill:only-child  { border-radius: 3px; }
+    .pill-group .pill + .pill     { margin-left: -1px; }
+    .pill:hover:not(:disabled):not(.active) {
+      background: rgba(98,114,164,0.18); color: var(--fg); z-index: 1; position: relative;
+    }
+    .pill.active {
+      background: var(--c-accent); border-color: var(--c-accent);
+      color: var(--bg); font-weight: 600; z-index: 2; position: relative;
+    }
+    .pill:disabled { opacity: .2; cursor: not-allowed; }
+
+    .pill.solo { border-radius: 3px; }
+    .pill.spam-pill.active { background: var(--c-spam); border-color: var(--c-spam); color: var(--bg); }
+    .pill.spam-pill:hover:not(.active) { border-color: var(--c-spam); color: var(--c-spam); }
+    .pill.mode-pill { font-size: .8rem; padding: .25rem .6rem; }
+    .pill.mode-pill.active { background: var(--c-accent); border-color: var(--c-accent); color: var(--bg); }
+
+    .select-wrap { position: relative; display: inline-flex; align-items: center; }
+    .select-wrap::after {
+      content: '▾'; position: absolute; right: .45rem; top: 50%;
+      transform: translateY(-50%); color: var(--comment);
+      pointer-events: none; font-size: .8rem;
+    }
+    .theme-select {
+      font-family: inherit; font-size: .68rem;
+      padding: .28rem 1.6rem .28rem .65rem;
+      background: transparent; color: var(--fg);
+      border: 1px solid var(--border); border-radius: 3px;
+      cursor: pointer; appearance: none; outline: none;
+      transition: border-color .15s;
+    }
+    .theme-select:hover { border-color: var(--fg); }
+    .theme-select:focus { border-color: var(--c-accent); }
+    .theme-select option { background: var(--surface); color: var(--fg); }
+
+    /* ── KPIs ── */
+    .kpis {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: .75rem; margin-bottom: 1.25rem;
+    }
+    .kpi {
+      background: var(--surface); border: 1px solid rgba(98,114,164,0.2);
+      border-top: 2px solid transparent; border-radius: 4px;
+      padding: .9rem 1.1rem; transition: background .3s, border-color .3s;
+    }
+    .kpi.blog  { border-top-color: var(--c-blog); }
+    .kpi.site  { border-top-color: var(--c-site); }
+    .kpi.spam  { border-top-color: var(--c-spam); }
+    .kpi-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .1em; color: var(--comment); }
+    .kpi-value { font-size: 1.9rem; font-weight: 700; line-height: 1; margin: .35rem 0 .2rem; transition: color .3s; }
+    .kpi.blog  .kpi-value { color: var(--c-blog); }
+    .kpi.site  .kpi-value { color: var(--c-site); }
+    .kpi.spam  .kpi-value { color: var(--c-spam); }
+    .kpi-sub   { font-size: .65rem; color: var(--comment); }
+
+    /* ── charts ── */
+    .grid { display: flex; flex-direction: column; gap: .75rem; }
+    .card {
+      background: var(--surface); border: 1px solid rgba(98,114,164,0.2);
+      border-radius: 4px; padding: .75rem; overflow: hidden;
+      transition: opacity .2s, background .3s, border-color .3s;
+    }
+    .card.refreshing { opacity: .45; }
+
+    /* Countries: bar left + map right */
+    .card-countries {
+      display: flex; padding: 0; height: 440px; overflow: hidden;
+    }
+    #chart-countries-bar {
+      width: 280px; flex-shrink: 0;
+      border-right: 1px solid rgba(98,114,164,0.18);
+    }
+    #chart-countries-map { flex: 1; }
+
+    /* clickable post labels */
+    .hc-label-link {
+      color: var(--fg); text-decoration: none;
+      transition: color .1s;
+    }
+    .hc-label-link:hover { color: var(--c-accent); text-decoration: underline; }
+
+    .empty {
+      display: flex; align-items: center; justify-content: center;
+      height: 180px; color: var(--comment); font-size: .78rem; font-style: italic;
+    }
+    .empty::before { content: '-- '; opacity: .5; }
+
+    footer {
+      margin-top: .9rem; font-size: .62rem; color: var(--comment);
+      opacity: .55; text-align: right; font-style: italic;
+    }
+
+    @media (max-width: 700px) {
+      .kpis { grid-template-columns: 1fr; }
+      .controls { gap: .4rem; }
+      .card-countries { flex-direction: column; height: auto; }
+      #chart-countries-bar { width: 100%; height: 280px; border-right: none; border-bottom: 1px solid rgba(98,114,164,0.18); }
+      #chart-countries-map { height: 340px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="hd-left">
+      <span class="hd-prompt">▶</span>
+      <span class="hd-title">lafabrique.ai <span>/ traffic stats</span></span>
+    </div>
+    <div class="hd-right" id="status">loading…</div>
+  </header>
+
+  <div class="controls">
+    <div class="pill-group" id="period-group"></div>
+    <div class="ctrl-sep"></div>
+    <div class="pill-group" id="grain-group"></div>
+    <div class="ctrl-sep"></div>
+    <button class="pill solo spam-pill active" id="spam-btn">⚠ spam</button>
+    <div class="ctrl-sep"></div>
+    <div class="select-wrap">
+      <select class="theme-select" id="theme-select" title="Color scheme"></select>
+    </div>
+    <button class="pill solo mode-pill" id="mode-btn" title="Switch to light mode">☀</button>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi blog">
+      <div class="kpi-label">Blog requests</div>
+      <div class="kpi-value" id="kv-blog">—</div>
+      <div class="kpi-sub"   id="ks-blog">—</div>
+    </div>
+    <div class="kpi site">
+      <div class="kpi-label">Site requests</div>
+      <div class="kpi-value" id="kv-site">—</div>
+      <div class="kpi-sub"   id="ks-site">—</div>
+    </div>
+    <div class="kpi spam">
+      <div class="kpi-label">Spam ratio</div>
+      <div class="kpi-value" id="kv-spam">—</div>
+      <div class="kpi-sub"   id="ks-spam">—</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"           id="chart-traffic"    style="height:300px"></div>
+    <div class="card"           id="chart-blog"       style="height:340px"></div>
+    <div class="card card-countries">
+      <div id="chart-countries-bar"></div>
+      <div id="chart-countries-map"></div>
+    </div>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+/* ── Color schemes: each dark theme paired with its light counterpart ── */
+const THEMES = {
+  /* Dracula (dark) / Alucra (light — Dracula palette inverted) */
+  'dracula': {
+    label: 'Dracula', dark: true,
+    bg: '#282a36', surface: '#44475a', border: '#6272a4',
+    fg: '#f8f8f2', comment: '#6272a4',
+    blog: '#bd93f9', site: '#8be9fd', spam: '#ff5555', countries: '#50fa7b',
+    accent: '#bd93f9', prompt: '#50fa7b',
+  },
+  'dracula-light': {
+    bg: '#f8f8f2', surface: '#eaeaf4', border: '#a0a0c4',
+    fg: '#282a36', comment: '#6272a4',
+    blog: '#7026c8', site: '#0891b2', spam: '#cc1a1a', countries: '#1a9c35',
+    accent: '#7026c8', prompt: '#1a9c35',
+  },
+
+  /* Tokyo Night (dark) / Tokyo Day (light) */
+  'tokyo-night': {
+    label: 'Tokyo Night', dark: true,
+    bg: '#1a1b26', surface: '#24283b', border: '#3b4261',
+    fg: '#c0caf5', comment: '#565f89',
+    blog: '#bb9af7', site: '#7dcfff', spam: '#f7768e', countries: '#9ece6a',
+    accent: '#7aa2f7', prompt: '#9ece6a',
+  },
+  'tokyo-night-light': {
+    bg: '#d5d6db', surface: '#e9e9ec', border: '#9699a3',
+    fg: '#343b58', comment: '#747ca8',
+    blog: '#9854f1', site: '#0e8ac0', spam: '#e0284e', countries: '#4a7028',
+    accent: '#7aa2f7', prompt: '#4a7028',
+  },
+
+  /* Nord (dark) / Nord Light */
+  'nord': {
+    label: 'Nord', dark: true,
+    bg: '#2e3440', surface: '#3b4252', border: '#4c566a',
+    fg: '#d8dee9', comment: '#616e88',
+    blog: '#b48ead', site: '#88c0d0', spam: '#bf616a', countries: '#a3be8c',
+    accent: '#5e81ac', prompt: '#a3be8c',
+  },
+  'nord-light': {
+    bg: '#eceff4', surface: '#e5e9f0', border: '#d8dee9',
+    fg: '#2e3440', comment: '#4c566a',
+    blog: '#9b6dab', site: '#3d8da8', spam: '#a94040', countries: '#4e8060',
+    accent: '#5e81ac', prompt: '#4e8060',
+  },
+
+  /* Catppuccin Mocha (dark) / Catppuccin Latte (light) */
+  'catppuccin': {
+    label: 'Catppuccin', dark: true,
+    bg: '#1e1e2e', surface: '#313244', border: '#45475a',
+    fg: '#cdd6f4', comment: '#6c7086',
+    blog: '#cba6f7', site: '#89dceb', spam: '#f38ba8', countries: '#a6e3a1',
+    accent: '#cba6f7', prompt: '#a6e3a1',
+  },
+  'catppuccin-light': {
+    bg: '#eff1f5', surface: '#e6e9ef', border: '#acb0be',
+    fg: '#4c4f69', comment: '#7c7f93',
+    blog: '#8839ef', site: '#04a5e5', spam: '#d20f39', countries: '#40a02b',
+    accent: '#8839ef', prompt: '#40a02b',
+  },
+};
+
+/* ── Period / granularity ── */
+const PERIOD_CFG = {
+  day:      { label: 'Last day',  sub: 'last 24h',  defaultGrain: 'hour',  disabled: ['month'] },
+  week:     { label: 'Week',      sub: 'last 7d',   defaultGrain: 'day',   disabled: [] },
+  quarter:  { label: 'Quarter',   sub: 'last 90d',  defaultGrain: 'day',   disabled: ['hour'] },
+  semester: { label: 'Semester',  sub: 'last 6mo',  defaultGrain: 'month', disabled: ['hour'] },
+  year:     { label: 'Year',      sub: 'last year', defaultGrain: 'month', disabled: ['hour'] },
+  all:      { label: 'All time',  sub: 'all time',  defaultGrain: 'month', disabled: ['hour'] },
+};
+const GRAIN_CFG = {
+  hour:  { label: 'Hourly',  fmt: '%e %b %H:%M' },
+  day:   { label: 'Daily',   fmt: '%e %b %Y' },
+  month: { label: 'Monthly', fmt: '%b %Y' },
+};
+
+/* ── State ── */
+const S = {
+  period:     'week',
+  granularity:'day',
+  showSpam:   true,
+  darkTheme:  localStorage.getItem('cf-stats-theme') || 'dracula',
+  mode:       localStorage.getItem('cf-stats-mode')  || 'dark',
+};
+const chartInstances = {};
+
+/* Pre-fetch world topology in parallel with page load */
+const worldTopoPromise = fetch('https://code.highcharts.com/mapdata/custom/world.topo.json')
+  .then(r => r.json()).catch(() => null);
+
+/* ── Utils ── */
+const fmt = n => {
+  if (n == null) return '0';
+  return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n);
+};
+const effectiveThemeName = () => S.mode === 'light' ? S.darkTheme + '-light' : S.darkTheme;
+const t = () => THEMES[effectiveThemeName()];
+
+/* ── Highcharts global theme ── */
+function buildHCTheme(th) {
+  return {
+    chart: {
+      backgroundColor: th.surface,
+      style: { fontFamily: "'JetBrains Mono', monospace" },
+      plotBorderColor: 'transparent',
+    },
+    colors: [th.blog, th.site, th.countries, '#ffb86c', th.spam, '#ff79c6'],
+    title: {
+      style: { color: th.fg, fontWeight: '600', fontSize: '12px' },
+      align: 'left', margin: 18,
+    },
+    xAxis: {
+      gridLineColor: th.border + '26', lineColor: th.border + '59',
+      tickColor: 'transparent',
+      labels: { style: { color: th.comment, fontSize: '10px' } },
+    },
+    yAxis: {
+      gridLineColor: th.border + '26', lineColor: 'transparent', tickColor: 'transparent',
+      labels: { style: { color: th.comment, fontSize: '10px' } },
+      title: { style: { color: th.comment, fontSize: '10px' } },
+    },
+    tooltip: {
+      backgroundColor: th.bg, borderColor: th.border, borderRadius: 3,
+      style: { color: th.fg, fontSize: '11px' }, shadow: false,
+    },
+    legend: {
+      itemStyle: { color: th.fg, fontWeight: '400', fontSize: '11px' },
+      itemHoverStyle: { color: th.accent },
+      itemHiddenStyle: { color: th.surface },
+      margin: 8,
+    },
+    plotOptions: { series: { animation: { duration: 280 } } },
+    credits: { enabled: false },
+  };
+}
+
+function applyTheme(name, rerender = true) {
+  const th = THEMES[name];
+  const r = document.documentElement.style;
+  r.setProperty('--bg',           th.bg);
+  r.setProperty('--surface',      th.surface);
+  r.setProperty('--border',       th.border);
+  r.setProperty('--fg',           th.fg);
+  r.setProperty('--comment',      th.comment);
+  r.setProperty('--c-blog',       th.blog);
+  r.setProperty('--c-site',       th.site);
+  r.setProperty('--c-spam',       th.spam);
+  r.setProperty('--c-countries',  th.countries);
+  r.setProperty('--c-accent',     th.accent);
+  r.setProperty('--c-prompt',     th.prompt);
+  Highcharts.setOptions(buildHCTheme(th));
+  if (rerender) loadAll();
+}
+
+/* ── Controls ── */
+function buildControls() {
+  const pg = document.getElementById('period-group');
+  Object.entries(PERIOD_CFG).forEach(([key, cfg]) => {
+    const b = document.createElement('button');
+    b.className = 'pill' + (key === S.period ? ' active' : '');
+    b.textContent = cfg.label; b.dataset.period = key;
+    b.addEventListener('click', () => setPeriod(key));
+    pg.appendChild(b);
+  });
+
+  const gg = document.getElementById('grain-group');
+  Object.entries(GRAIN_CFG).forEach(([key, cfg]) => {
+    const b = document.createElement('button');
+    b.className = 'pill' + (key === S.granularity ? ' active' : '');
+    b.textContent = cfg.label; b.dataset.grain = key;
+    b.addEventListener('click', () => setGrain(key));
+    gg.appendChild(b);
+  });
+
+  document.getElementById('spam-btn').addEventListener('click', () => {
+    S.showSpam = !S.showSpam;
+    document.getElementById('spam-btn').classList.toggle('active', S.showSpam);
+    loadAll();
+  });
+
+  /* Theme dropdown — dark themes only */
+  const sel = document.getElementById('theme-select');
+  Object.entries(THEMES).filter(([, th]) => th.dark).forEach(([key, th]) => {
+    const opt = document.createElement('option');
+    opt.value = key; opt.textContent = th.label;
+    if (key === S.darkTheme) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', e => {
+    S.darkTheme = e.target.value;
+    localStorage.setItem('cf-stats-theme', S.darkTheme);
+    applyTheme(effectiveThemeName());
+  });
+
+  /* Light / dark toggle */
+  syncModeBtn();
+  document.getElementById('mode-btn').addEventListener('click', () => {
+    S.mode = S.mode === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('cf-stats-mode', S.mode);
+    syncModeBtn();
+    applyTheme(effectiveThemeName());
+  });
+}
+
+function syncModeBtn() {
+  const btn = document.getElementById('mode-btn');
+  const isLight = S.mode === 'light';
+  btn.textContent = isLight ? '☾' : '☀';
+  btn.title = isLight ? 'Switch to dark mode' : 'Switch to light mode';
+  btn.classList.toggle('active', isLight);
+}
+
+function setPeriod(p) {
+  S.period = p;
+  if (PERIOD_CFG[p].disabled.includes(S.granularity))
+    S.granularity = PERIOD_CFG[p].defaultGrain;
+  syncPills(); loadAll();
+}
+function setGrain(g) {
+  if (PERIOD_CFG[S.period].disabled.includes(g)) return;
+  S.granularity = g; syncPills(); loadAll();
+}
+function syncPills() {
+  const disabled = PERIOD_CFG[S.period].disabled;
+  document.querySelectorAll('[data-period]').forEach(b =>
+    b.classList.toggle('active', b.dataset.period === S.period));
+  document.querySelectorAll('[data-grain]').forEach(b => {
+    b.classList.toggle('active', b.dataset.grain === S.granularity);
+    b.disabled = disabled.includes(b.dataset.grain);
+  });
+}
+
+/* ── Data loading ── */
+function setRefreshing(on) {
+  document.querySelectorAll('.card, .card-countries').forEach(c =>
+    c.classList.toggle('refreshing', on));
+  document.getElementById('status').textContent =
+    on ? '⟳ updating…' : '// updated ' + new Date().toLocaleTimeString();
+}
+
+async function loadAll() {
+  setRefreshing(true);
+  const { period: p, granularity: g } = S;
+  try {
+    const [summary, traffic, blog, countries, health, topo] = await Promise.all([
+      fetch(`/api/summary?period=${p}`).then(r => r.json()),
+      fetch(`/api/traffic?period=${p}&granularity=${g}`).then(r => r.json()),
+      fetch(`/api/top-blog?period=${p}`).then(r => r.json()),
+      fetch(`/api/countries?period=${p}`).then(r => r.json()),
+      fetch('/api/health').then(r => r.json()),
+      worldTopoPromise,
+    ]);
+    renderKPIs(summary);
+    renderTraffic(traffic);
+    renderBlog(blog);
+    renderCountries(countries, topo);
+    renderFooter(health);
+  } catch (err) {
+    document.getElementById('status').textContent = '// error — check console';
+    console.error(err);
+  } finally {
+    setRefreshing(false);
+  }
+}
+
+/* ── KPIs ── */
+function renderKPIs(summary) {
+  const by = Object.fromEntries(summary.map(r => [r.category, r]));
+  const sub = PERIOD_CFG[S.period].sub;
+  document.getElementById('kv-blog').textContent = fmt(by.blog?.requests);
+  document.getElementById('kv-site').textContent = fmt(by.site?.requests);
+  document.getElementById('kv-spam').textContent = (by.spam?.pct ?? 0) + '%';
+  ['blog','site','spam'].forEach(k =>
+    document.getElementById('ks-' + k).textContent = sub);
+}
+
+/* ── Chart helpers ── */
+function mc(id, opts) {
+  if (chartInstances[id]) chartInstances[id].destroy();
+  chartInstances[id] = Highcharts.chart(id, opts);
+}
+function mm(id, opts) {
+  if (chartInstances[id]) chartInstances[id].destroy();
+  chartInstances[id] = Highcharts.mapChart(id, opts);
+}
+function empty(id, msg) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+  if (msg) document.getElementById(id).innerHTML = `<div class="empty">${msg}</div>`;
+  else document.getElementById(id).innerHTML = '';
+}
+
+/* ── Traffic ── */
+function renderTraffic(rows) {
+  if (!rows.length) { empty('chart-traffic', 'no data for this period'); return; }
+  const th = t();
+  const series = [
+    { name: 'Blog', type: 'area', yAxis: 0, data: rows.map(r => [r.ts_ms, r.blog]),
+      color: th.blog, fillOpacity: 0.22, lineWidth: 1.5, marker: { enabled: false }, zIndex: 3 },
+    { name: 'Site', type: 'area', yAxis: 0, data: rows.map(r => [r.ts_ms, r.site]),
+      color: th.site, fillOpacity: 0.18, lineWidth: 1.5, marker: { enabled: false }, zIndex: 2 },
+  ];
+  const yAxis = [{ title: { text: 'requests' }, min: 0, allowDecimals: false }];
+  if (S.showSpam) {
+    series.push({ name: 'Spam', type: 'line', yAxis: 1, data: rows.map(r => [r.ts_ms, r.spam]),
+      color: th.spam, dashStyle: 'ShortDot', lineWidth: 1.5, marker: { enabled: false }, zIndex: 1 });
+    yAxis.push({ title: { text: 'spam', style: { color: th.spam } },
+      labels: { style: { color: th.spam } }, opposite: true,
+      min: 0, allowDecimals: false, gridLineWidth: 0 });
+  }
+  mc('chart-traffic', {
+    chart: { type: 'area', margin: [32, S.showSpam ? 72 : 16, 28, 58] },
+    title: { text: 'Traffic over time' },
+    xAxis: { type: 'datetime', crosshair: { color: th.border + '40' } },
+    yAxis,
+    tooltip: { shared: true, xDateFormat: GRAIN_CFG[S.granularity].fmt },
+    plotOptions: { area: { stacking: 'normal' } },
+    legend: { enabled: true, verticalAlign: 'top', align: 'right' },
+    series,
+  });
+}
+
+/* ── Top blog posts — labels are clickable links ── */
+function renderBlog(rows) {
+  if (!rows.length) { empty('chart-blog', 'no blog traffic for this period'); return; }
+  const th = t();
+  const slugs = rows.map(r => r.path.replace(/^\/blog\//, '').replace(/\/$/, '') || r.path);
+  const urls  = rows.map(r => 'https://lafabrique.ai' + r.path);
+
+  mc('chart-blog', {
+    chart: { type: 'bar', margin: [32, 12, 28, 180] },
+    title: { text: 'Top posts' },
+    xAxis: {
+      categories: slugs,
+      labels: {
+        useHTML: true,
+        formatter() {
+          const slug = slugs[this.pos];
+          const url  = urls[this.pos];
+          const display = slug.length > 30 ? slug.slice(0, 29) + '…' : slug;
+          return `<a href="${url}" target="_blank" rel="noopener"
+                    class="hc-label-link" title="${url}">${display}</a>`;
+        },
+      },
+    },
+    yAxis: { title: { text: null }, allowDecimals: false },
+    tooltip: {
+      formatter() {
+        return `<b>${slugs[this.point.index]}</b><br>
+                <span style="color:${th.blog}">●</span> ${this.y.toLocaleString()} requests<br>
+                <span style="color:${th.comment};font-size:10px">${urls[this.point.index]}</span>`;
+      },
+    },
+    legend: { enabled: false },
+    plotOptions: {
+      series: {
+        cursor: 'pointer',
+        point: { events: { click() { window.open(urls[this.index], '_blank', 'noopener'); } } },
+      },
+    },
+    series: [{
+      name: 'Requests',
+      data: rows.map(r => ({ y: r.requests, color: th.blog })),
+      borderRadius: 2,
+      dataLabels: {
+        enabled: rows.length <= 8,
+        style: { color: th.fg, fontSize: '10px', fontWeight: '400', textOutline: 'none' },
+        formatter() { return fmt(this.y); },
+      },
+    }],
+  });
+}
+
+/* ── Countries: bar (left) + choropleth map (right) ── */
+function renderCountries(rows, topo) {
+  const noData = !rows.length;
+  const noTopo = !topo;
+
+  /* bar chart */
+  if (noData) {
+    empty('chart-countries-bar', 'no country data');
+  } else {
+    const th = t();
+    mc('chart-countries-bar', {
+      chart: { type: 'bar', margin: [32, 8, 20, 40] },
+      title: { text: 'Countries', style: { fontSize: '11px' } },
+      xAxis: {
+        categories: rows.map(r => r.country),
+        labels: { style: { color: th.fg, fontSize: '10px' } },
+      },
+      yAxis: { title: { text: null }, allowDecimals: false, labels: { enabled: false } },
+      tooltip: {
+        formatter() {
+          return `<b>${this.x}</b><br>
+                  <span style="color:${th.countries}">●</span> ${this.y.toLocaleString()} requests`;
+        },
+      },
+      legend: { enabled: false },
+      series: [{
+        name: 'Requests',
+        data: rows.map(r => ({ y: r.requests, color: th.countries })),
+        borderRadius: 2,
+        dataLabels: {
+          enabled: true, inside: true, align: 'left',
+          style: { color: th.bg, fontSize: '9px', fontWeight: '600', textOutline: 'none' },
+          formatter() { return fmt(this.y); },
+        },
+      }],
+    });
+  }
+
+  /* map */
+  if (noTopo) {
+    empty('chart-countries-map', 'map data unavailable');
+  } else if (noData) {
+    empty('chart-countries-map', 'no country data');
+  } else {
+    const th = t();
+    mm('chart-countries-map', {
+      chart: { map: topo, margin: [24, 4, 4, 4] },
+      title: { text: 'World map', style: { fontSize: '11px' } },
+      colorAxis: {
+        type: 'logarithmic', min: 1,
+        minColor: th.surface, maxColor: th.countries,
+        labels: { style: { color: th.comment, fontSize: '9px' } },
+      },
+      mapNavigation: {
+        enabled: true, enableMouseWheelZoom: false,
+        buttons: {
+          zoomIn:  { theme: { fill: th.surface, stroke: th.border, style: { color: th.fg } } },
+          zoomOut: { theme: { fill: th.surface, stroke: th.border, style: { color: th.fg } } },
+        },
+      },
+      tooltip: {
+        headerFormat: '',
+        pointFormat: '<b>{point.name}</b><br>' +
+          `<span style="color:${t().countries}">●</span> {point.value} requests`,
+      },
+      legend: {
+        enabled: true, layout: 'horizontal', align: 'right',
+        verticalAlign: 'bottom', floating: true,
+      },
+      series: [{
+        type: 'map',
+        data: rows.map(r => ({ 'hc-key': r.country.toLowerCase(), value: r.requests })),
+        joinBy: 'hc-key',
+        nullColor: th.bg, borderColor: th.border, borderWidth: 0.3,
+        states: { hover: { color: th.accent, borderColor: th.accent } },
+      }],
+    });
+  }
+}
+
+/* ── Footer ── */
+function renderFooter(h) {
+  document.getElementById('footer').textContent =
+    `${(h.rows ?? 0).toLocaleString()} rows · ${(h.since ?? '').slice(0,10)} → ${(h.until ?? '').slice(0,10)}`;
+}
+
+/* ── Init ── */
+applyTheme(effectiveThemeName(), false);
+buildControls();
+loadAll();
+</script>
+</body>
+</html>
