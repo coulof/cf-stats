@@ -131,6 +131,19 @@ def to_records(rows: list[dict]) -> list[tuple]:
     return out
 
 
+MAX_CHUNK_HOURS = 24  # CF free plan: max 1 day per query
+
+
+def day_chunks(since: datetime, until: datetime) -> list[tuple[datetime, datetime]]:
+    """Split [since, until) into MAX_CHUNK_HOURS slices."""
+    step = timedelta(hours=MAX_CHUNK_HOURS)
+    chunks, cursor = [], since
+    while cursor < until:
+        chunks.append((cursor, min(cursor + step, until)))
+        cursor += step
+    return chunks
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--hours", type=int, default=4,
@@ -151,14 +164,20 @@ def main() -> None:
     until = parse_iso(args.until) if args.until else now_hour
     since = parse_iso(args.since) if args.since else until - timedelta(hours=args.hours)
 
-    rows = fetch(token, zone, since, until)
-    if len(rows) == LIMIT:
-        sys.stderr.write(
-            f"WARN: hit per-query limit ({LIMIT}); window likely truncated. "
-            f"Reduce --hours or chunk by hour.\n"
-        )
+    chunks = day_chunks(since, until)
+    all_records: list[tuple] = []
 
-    records = to_records(rows)
+    for i, (chunk_since, chunk_until) in enumerate(chunks, 1):
+        if len(chunks) > 1:
+            print(f"  chunk {i}/{len(chunks)}: {chunk_since.strftime(ISO)} → {chunk_until.strftime(ISO)}", flush=True)
+        rows = fetch(token, zone, chunk_since, chunk_until)
+        if len(rows) == LIMIT:
+            sys.stderr.write(
+                f"WARN: hit per-query limit ({LIMIT}) for chunk "
+                f"{chunk_since.strftime(ISO)}–{chunk_until.strftime(ISO)}; "
+                f"data may be truncated.\n"
+            )
+        all_records.extend(to_records(rows))
 
     con = duckdb.connect(args.db)
     con.execute(SCHEMA)
@@ -167,10 +186,10 @@ def main() -> None:
         "DELETE FROM requests_hourly WHERE ts >= ? AND ts < ?",
         [since, until],
     )
-    if records:
+    if all_records:
         con.executemany(
             "INSERT INTO requests_hourly VALUES (?,?,?,?,?,?,?,?)",
-            records,
+            all_records,
         )
     con.execute("COMMIT")
 
@@ -179,7 +198,7 @@ def main() -> None:
         "SELECT MIN(ts), MAX(ts) FROM requests_hourly"
     ).fetchone()
     print(f"window:  {since.strftime(ISO)} → {until.strftime(ISO)}")
-    print(f"fetched: {len(records)} rows")
+    print(f"fetched: {len(all_records)} rows ({len(chunks)} chunk{'s' if len(chunks) > 1 else ''})")
     print(f"db:      {args.db}")
     print(f"  total rows: {total}")
     print(f"  span:       {span[0]} → {span[1]}")
