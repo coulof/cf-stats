@@ -150,7 +150,8 @@ def main() -> None:
                     help="hours back from the most recent complete hour (default 4)")
     ap.add_argument("--since", help="ISO8601 UTC, overrides --hours")
     ap.add_argument("--until", help="ISO8601 UTC, overrides --hours")
-    ap.add_argument("--db", default=str(Path(__file__).parent.parent / "stats.duckdb"))
+    ap.add_argument("--db", default=os.environ.get(
+        "CF_STATS_DB", str(Path(__file__).parent.parent / "stats.duckdb")))
     args = ap.parse_args()
 
     token = os.environ.get("CF_API_TOKEN")

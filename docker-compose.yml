@@ -1,0 +1,35 @@
+services:
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - stats:/data
+    env_file: .env
+    environment:
+      CF_STATS_DB: /data/stats.duckdb
+    command: python serve.py --host 0.0.0.0 --port 8080
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  collector:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - stats:/data
+    env_file: .env
+    environment:
+      CF_STATS_DB: /data/stats.duckdb
+    command: /entrypoint.sh
+
+volumes:
+  stats:
+    # DuckDB file persists across container restarts.
+    # To inspect: docker run --rm -v cf-stats_stats:/data alpine ls -lh /data

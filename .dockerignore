@@ -1,0 +1,12 @@
+.venv/
+.env
+.git/
+.claude/
+__pycache__/
+*.pyc
+*.duckdb
+*.duckdb.wal
+backups/
+tests/
+systemd/
+*.md

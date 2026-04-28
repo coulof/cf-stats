@@ -115,6 +115,46 @@ tasks:
     cmds:
       - "{{.PYTHON}} serve.py {{.CLI_ARGS}}"
 
+  # ---------- docker ----------
+
+  docker:build:
+    desc: Build the Docker image
+    cmds:
+      - docker compose build
+
+  docker:up:
+    desc: Start web + collector in the background
+    cmds:
+      - docker compose up -d
+      - docker compose ps
+
+  docker:down:
+    desc: Stop and remove containers (data volume is preserved)
+    cmds:
+      - docker compose down
+
+  docker:destroy:
+    desc: Stop containers AND delete the stats volume (DESTRUCTIVE)
+    prompt: This deletes the stats volume and all collected data. Continue?
+    cmds:
+      - docker compose down -v
+
+  docker:logs:
+    desc: 'Follow logs (use -- --no-follow for a snapshot, -- web or -- collector to filter)'
+    cmds:
+      - docker compose logs -f {{.CLI_ARGS}}
+
+  docker:status:
+    desc: Show container status and last collector log lines
+    cmds:
+      - docker compose ps
+      - docker compose logs --tail 20 collector
+
+  docker:backfill:
+    desc: 'Run a one-off backfill inside the running collector container (e.g. task docker:backfill -- --hours 720)'
+    cmds:
+      - docker compose exec collector python collector/collector.py {{.CLI_ARGS}}
+
   # ---------- systemd (user service, rootless) ----------
 
   systemd:install:

@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -19,7 +20,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-DB = Path(__file__).parent / "stats.duckdb"
+DB = Path(os.environ.get("CF_STATS_DB", str(Path(__file__).parent / "stats.duckdb")))
 WEB = Path(__file__).parent / "web"
 
 Period = Literal["day", "week", "quarter", "semester", "year", "all"]

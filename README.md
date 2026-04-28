@@ -30,7 +30,21 @@ Architecture, alternatives considered, and trade-offs:
    task serve          # → http://localhost:8080
    ```
 
-## Hourly collection (systemd)
+## Docker (recommended for server deployment)
+
+```bash
+cp .env.example .env          # fill in CF_API_TOKEN and CF_ZONE_ID
+task docker:build
+task docker:up                # starts web (:8080) + collector
+task docker:logs              # follow both services
+task docker:backfill -- --hours 720   # one-off 30-day backfill
+```
+
+The `stats` Docker volume holds `stats.duckdb` and survives container restarts.
+`task docker:down` stops containers without touching data;
+`task docker:destroy` removes containers **and** the volume.
+
+## Hourly collection (systemd, alternative)
 
 ```bash
 task systemd:install   # symlink units into ~/.config/systemd/user/
@@ -62,12 +76,18 @@ collector/
   probe.py        one-shot API diagnostic
   collector.py    idempotent hourly ingester
   views.sql       blog/site/spam classification — edit freely
+docker/
+  collector-entrypoint.sh   hourly loop with clock alignment + jitter
 systemd/
-  cf-stats.service   oneshot collector unit
-  cf-stats.timer     hourly schedule (RandomizedDelaySec=300)
+  cf-stats.service          oneshot collector unit
+  cf-stats.timer            hourly schedule (RandomizedDelaySec=300)
+  cf-stats-web.service      web dashboard service
 web/
   index.html      Highcharts dashboard (single file, no build step)
 serve.py          FastAPI — /api/* endpoints + serves web/
+Dockerfile        single image for both services
+docker-compose.yml
+tests/            pytest suite (61 tests)
 docs/adr/         architecture decision records
 stats.duckdb      the database (gitignored)
 .env              CF credentials (gitignored)
@@ -81,5 +101,5 @@ Phase 1 of [ADR-001](docs/adr/0001-cf-stats-architecture.md):
 - [x] Hourly systemd timer
 - [x] FastAPI + Highcharts dashboard
 - [x] Test suite (61 tests)
-- [ ] Containerize (Docker Compose — collector + web + DuckDB volume)
+- [x] Containerize (Docker Compose — collector + web + DuckDB volume)
 - [ ] Phase 2: public dashboard via Cloudflare Pages
