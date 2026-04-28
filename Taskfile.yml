@@ -19,7 +19,7 @@ tasks:
   # ---------- setup ----------
 
   setup:
-    desc: Create venv and install Python dependencies
+    desc: Create venv and install runtime dependencies
     cmds:
       - python3 -m venv {{.VENV}}
       - "{{.PIP}} install --upgrade pip --quiet"
@@ -27,6 +27,22 @@ tasks:
     status:
       - test -d {{.VENV}}
       - "{{.PYTHON}} -c 'import duckdb, fastapi, uvicorn' 2>/dev/null"
+
+  setup-dev:
+    desc: Install runtime + dev (test) dependencies
+    cmds:
+      - python3 -m venv {{.VENV}}
+      - "{{.PIP}} install --upgrade pip --quiet"
+      - "{{.PIP}} install -r requirements-dev.txt --quiet"
+    status:
+      - test -d {{.VENV}}
+      - "{{.PYTHON}} -c 'import duckdb, fastapi, uvicorn, pytest' 2>/dev/null"
+
+  test:
+    desc: 'Run the test suite (use -- -v for verbose, -- -k pattern to filter)'
+    deps: [setup-dev]
+    cmds:
+      - "{{.PYTHON}} -m pytest tests/ {{.CLI_ARGS}}"
 
   # ---------- collection ----------
 
